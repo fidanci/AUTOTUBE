@@ -8,7 +8,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
@@ -47,6 +46,11 @@ final class ShortcutStore {
     static synchronized void addBuiltin(Context context,String id,String name,String url) {
         ArrayList<Item> items=new ArrayList<>(read(context));if(hasId(items,id))return;
         items.add(new Item(id,name,url,false));write(context,items);
+    }
+
+    static synchronized void addApp(Context context,String packageName,String name) {
+        String id="app:"+packageName;ArrayList<Item> items=new ArrayList<>(read(context));if(hasId(items,id))return;
+        items.add(new Item(id,name,packageName,true));write(context,items);
     }
 
     static synchronized void add(Context context, String name, String value, boolean app) {
