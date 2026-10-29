@@ -47,7 +47,7 @@ public final class MainActivity extends Activity {
     private java.io.File pendingUpdateFile;
     private int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
 
-    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);ShortcutStore.ensureInitialShortcuts(this);buildScreen();}
+    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);ShortcutStore.removeBuiltinShortcuts(this);buildScreen();}
 
     private void buildScreen(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
@@ -60,7 +60,12 @@ public final class MainActivity extends Activity {
         TextView eyebrow=label("YOLCULUĞUNUN EĞLENCE MERKEZİ",10,0xFF92E8E4,true);eyebrow.setLetterSpacing(.12f);hero.addView(eyebrow);
         TextView title=label("İzle. Keşfet.\nDilediğin yerde.",30,0xFFF8FAFF,true);title.setLineSpacing(dp(2),1f);LinearLayout.LayoutParams titleLp=lp(-1,-2);titleLp.topMargin=dp(12);hero.addView(title,titleLp);
         TextView desc=label("YouTube, web ve kendi favorilerin.",14,0xFFBAC7DC,false);LinearLayout.LayoutParams descLp=lp(-1,-2);descLp.topMargin=dp(9);hero.addView(desc,descLp);
-        addSectionTitle(page,"Favorilerim","Favori uygulamalarını ve web sitelerini buraya ekle.");
+        addSectionTitle(page,"Sabit kısayollar","YouTube ve web tarayıcı her zaman burada.");
+        LinearLayout pinned=new LinearLayout(this);pinned.setOrientation(LinearLayout.HORIZONTAL);LinearLayout.LayoutParams pinnedLp=lp(-1,dp(134));pinnedLp.topMargin=dp(14);page.addView(pinned,pinnedLp);
+        LinearLayout.LayoutParams youtubeLp=new LinearLayout.LayoutParams(0,-1,1);youtubeLp.rightMargin=dp(10);pinned.addView(tile("▶","YouTube","Videoları aç",0xFF5C3152,0xFFB73155,v->openBrowser("https://m.youtube.com")),youtubeLp);
+        pinned.addView(tile("◎","Web tarayıcı","Web'de gezin",0xFF173F52,0xFF168AAB,v->openBrowser("https://www.google.com")),new LinearLayout.LayoutParams(0,-1,1));
+
+        addSectionTitle(page,"Favorilerim","Favori uygulama ve web sitelerini ekle.");
         HorizontalScrollView horizontal=new HorizontalScrollView(this);horizontal.setHorizontalScrollBarEnabled(false);horizontal.setClipToPadding(false);LinearLayout.LayoutParams hLp=lp(-1,dp(156));hLp.topMargin=dp(14);page.addView(horizontal,hLp);
         shortcutStrip=new LinearLayout(this);shortcutStrip.setOrientation(LinearLayout.HORIZONTAL);horizontal.addView(shortcutStrip,new HorizontalScrollView.LayoutParams(-2,-1));renderCustomShortcuts();
 
@@ -86,12 +91,9 @@ public final class MainActivity extends Activity {
     }
 
     private void showAddShortcutOptions(){
-        new AlertDialog.Builder(this).setTitle("Favori ekle").setItems(new String[]{"Telefondan uygulama seç","Web sitesi ekle","YouTube ekle","Web tarayıcı ekle"},(d,which)->{
+        new AlertDialog.Builder(this).setTitle("Favori ekle").setItems(new String[]{"Telefondan uygulama seç","Web sitesi ekle"},(d,which)->{
             if(which==0){showInstalledApps();return;}
-            if(which==1){showAddWebsite();return;}
-            if(which==2)ShortcutStore.addBuiltin(this,"builtin-youtube","YouTube","https://m.youtube.com");
-            else ShortcutStore.addBuiltin(this,"builtin-browser","Web tarayıcı","https://www.google.com");
-            renderCustomShortcuts();
+            showAddWebsite();
         }).setNegativeButton("Kapat",null).show();
     }
 

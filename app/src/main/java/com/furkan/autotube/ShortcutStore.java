@@ -34,18 +34,10 @@ final class ShortcutStore {
         return Collections.unmodifiableList(result);
     }
 
-    static synchronized void ensureInitialShortcuts(Context context) {
-        SharedPreferences p=prefs(context);
-        if (p.getBoolean("initial_shortcuts_added",false)) return;
-        ArrayList<Item> items=new ArrayList<>(read(context));
-        if (!hasId(items,"builtin-youtube")) items.add(0,new Item("builtin-youtube","YouTube","https://m.youtube.com",false));
-        if (!hasId(items,"builtin-browser")) items.add(items.size()>0?1:0,new Item("builtin-browser","Web tarayıcı","https://www.google.com",false));
-        write(context,items);p.edit().putBoolean("initial_shortcuts_added",true).apply();
-    }
-
-    static synchronized void addBuiltin(Context context,String id,String name,String url) {
-        ArrayList<Item> items=new ArrayList<>(read(context));if(hasId(items,id))return;
-        items.add(new Item(id,name,url,false));write(context,items);
+    static synchronized void removeBuiltinShortcuts(Context context) {
+        ArrayList<Item> items=new ArrayList<>();
+        for(Item item:read(context))if(!item.id.equals("builtin-youtube")&&!item.id.equals("builtin-browser"))items.add(item);
+        write(context,items);
     }
 
     static synchronized void addApp(Context context,String packageName,String name) {
