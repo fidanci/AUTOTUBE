@@ -61,6 +61,14 @@ jobs:
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Verify the APK uses the cached signing key
+        run: |
+          key_fingerprint=$(keytool -exportcert -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f 1)
+          apk_fingerprint=$("$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | awk '/Signer #1 certificate SHA-256 digest:/ {print $NF}')
+          echo "Keystore certificate: $key_fingerprint"
+          echo "APK certificate:      $apk_fingerprint"
+          test "$key_fingerprint" = "$apk_fingerprint"
+
       - name: Prepare release files
         if: github.event_name == 'push'
         run: cp app/build/outputs/apk/debug/app-debug.apk AutoTube.apk
