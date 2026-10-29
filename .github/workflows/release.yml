@@ -25,6 +25,8 @@ jobs:
           gradle-version: "9.7.1"
 
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Keep the sideload signing key stable
         uses: actions/cache@v4
