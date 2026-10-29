@@ -2,7 +2,6 @@ package com.furkan.autotube;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
@@ -24,6 +23,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -109,7 +110,24 @@ public final class MainActivity extends Activity {
     private void checkForUpdates(){Toast.makeText(this,"GitHub kontrol ediliyor…",Toast.LENGTH_SHORT).show();GithubUpdater.check(BuildConfig.VERSION_NAME,(release,error)->{if(isFinishing())return;if(error!=null){new AlertDialog.Builder(this).setMessage(error).setPositiveButton("Tamam",null).show();return;}if(release==null){new AlertDialog.Builder(this).setMessage("AutoTube güncel. ("+BuildConfig.VERSION_NAME+")").setPositiveButton("Tamam",null).show();return;}
         new AlertDialog.Builder(this).setTitle("Güncelleme var: "+release.version).setMessage(release.notes.isEmpty()?"Yeni sürümü indirip kurmak ister misin?":release.notes+"\n\nYeni sürümü indirip kurmak ister misin?").setNegativeButton("Daha sonra",null).setPositiveButton("İndir",(dialog,which)->downloadUpdate(release)).show();});}
 
-    private void downloadUpdate(GithubUpdater.Release release){ProgressDialog progress=new ProgressDialog(this);progress.setMessage("Güncelleme indiriliyor…");progress.setCancelable(false);progress.show();GithubUpdater.download(this,release,(file,error)->{if(isFinishing())return;progress.dismiss();if(error!=null){new AlertDialog.Builder(this).setMessage(error).setPositiveButton("Tamam",null).show();return;}pendingUpdateFile=file;continueInstall();});}
+    private void downloadUpdate(GithubUpdater.Release release){
+        LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(22),dp(10),dp(22),dp(8));
+        TextView details=label("0%  •  0.0 MB / 0.0 MB",14,0xFFE8EDF7,true);details.setGravity(Gravity.CENTER_HORIZONTAL);content.addView(details,lp(-1,-2));
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setIndeterminate(true);LinearLayout.LayoutParams barLp=lp(-1,dp(8));barLp.topMargin=dp(14);content.addView(bar,barLp);
+        AlertDialog progress=new AlertDialog.Builder(this).setTitle("Güncelleme").setView(content).create();progress.setCancelable(false);progress.show();
+        GithubUpdater.download(this,release,new GithubUpdater.DownloadCallback(){
+            @Override public void onProgress(long downloadedBytes,long totalBytes){
+                if(!progress.isShowing())return;
+                if(totalBytes>0){int percent=(int)Math.min(100,(downloadedBytes*100L)/totalBytes);bar.setIndeterminate(false);bar.setProgress(percent);details.setText(String.format(Locale.getDefault(),"%d%%  •  %s / %s",percent,megabytes(downloadedBytes),megabytes(totalBytes)));}
+                else{bar.setIndeterminate(true);details.setText(megabytes(downloadedBytes));}
+            }
+            @Override public void onResult(java.io.File file,String error){
+                if(isFinishing())return;progress.dismiss();if(error!=null){new AlertDialog.Builder(MainActivity.this).setMessage(error).setPositiveButton("Tamam",null).show();return;}pendingUpdateFile=file;continueInstall();
+            }
+        });
+    }
+
+    private String megabytes(long bytes){return String.format(Locale.getDefault(),"%.1f MB",bytes/1_000_000.0);}
 
     private void continueInstall(){if(pendingUpdateFile==null||!pendingUpdateFile.exists())return;if(Build.VERSION.SDK_INT>=26&&!getPackageManager().canRequestPackageInstalls()){Intent settings=new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()));startActivity(settings);Toast.makeText(this,"Kuruluma devam etmek için AutoTube'a izin ver.",Toast.LENGTH_LONG).show();return;}installApk(pendingUpdateFile);}
 

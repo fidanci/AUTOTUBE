@@ -3,6 +3,7 @@ package com.furkan.autotube;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -22,7 +23,10 @@ final class GithubUpdater {
     private GithubUpdater() {}
 
     interface CheckCallback { void onResult(Release release, String error); }
-    interface DownloadCallback { void onResult(File file, String error); }
+    interface DownloadCallback {
+        void onProgress(long downloadedBytes,long totalBytes);
+        void onResult(File file, String error);
+    }
 
     static final class Release {
         final String version, downloadUrl, notes;
@@ -41,7 +45,23 @@ final class GithubUpdater {
     static void download(Context context,Release release,DownloadCallback callback){
         WORKER.execute(()->{File result=null;String error=null;HttpURLConnection c=null;
             try{File directory=new File(context.getCacheDir(),"updates");if(!directory.exists()&&!directory.mkdirs())throw new Exception("Güncelleme dosyası için klasör açılamadı.");File target=new File(directory,"AutoTube.apk");c=(HttpURLConnection)new URL(release.downloadUrl).openConnection();c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent","AutoTube-Android");int status=c.getResponseCode();if(status<200||status>=300)throw new Exception("APK indirilemedi ("+status+"), tekrar dene.");
-                try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(target)){byte[] buffer=new byte[16384];int count;while((count=in.read(buffer))!=-1)out.write(buffer,0,count);out.getFD().sync();}if(target.length()<100000)throw new Exception("İndirilen APK dosyası eksik görünüyor.");result=target;
+                long totalBytes=c.getContentLengthLong();
+                long downloadedBytes=0,lastReportedAt=0;
+                MAIN.post(()->callback.onProgress(0,totalBytes));
+                try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(target)){
+                    byte[] buffer=new byte[16384];int count;
+                    while((count=in.read(buffer))!=-1){
+                        out.write(buffer,0,count);downloadedBytes+=count;
+                        long now=SystemClock.elapsedRealtime();
+                        if(now-lastReportedAt>=200||(totalBytes>0&&downloadedBytes>=totalBytes)){
+                            long current=downloadedBytes,size=totalBytes;
+                            MAIN.post(()->callback.onProgress(current,size));lastReportedAt=now;
+                        }
+                    }
+                    out.getFD().sync();
+                }
+                long completedBytes=downloadedBytes,size=totalBytes;MAIN.post(()->callback.onProgress(completedBytes,size));
+                if(target.length()<100000)throw new Exception("İndirilen APK dosyası eksik görünüyor.");result=target;
             }catch(Exception e){error=e.getMessage()==null?"İndirme başarısız oldu.":e.getMessage();}finally{if(c!=null)c.disconnect();}File file=result;String message=error;MAIN.post(()->callback.onResult(file,message));
         });
     }
