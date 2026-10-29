@@ -40,11 +40,6 @@ final class ShortcutStore {
         write(context,items);
     }
 
-    static synchronized void addApp(Context context,String packageName,String name) {
-        String id="app:"+packageName;ArrayList<Item> items=new ArrayList<>(read(context));if(hasId(items,id))return;
-        items.add(new Item(id,name,packageName,true));write(context,items);
-    }
-
     static synchronized void add(Context context, String name, String value, boolean app) {
         JSONArray array = new JSONArray();
         for (Item item : read(context)) array.put(toJson(item));

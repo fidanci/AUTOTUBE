@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.Intent;
-import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Typeface;
@@ -31,9 +30,6 @@ import androidx.core.content.FileProvider;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Collections;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -47,7 +43,7 @@ public final class MainActivity extends Activity {
     private java.io.File pendingUpdateFile;
     private int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
 
-    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);ShortcutStore.removeBuiltinShortcuts(this);buildScreen();}
+    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);ShortcutStore.removeBuiltinShortcuts(this);ShortcutStore.removeAppItems(this);buildScreen();}
 
     private void buildScreen(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
@@ -65,7 +61,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams youtubeLp=new LinearLayout.LayoutParams(0,-1,1);youtubeLp.rightMargin=dp(10);pinned.addView(tile("▶","YouTube","Videoları aç",0xFF5C3152,0xFFB73155,v->openBrowser("https://m.youtube.com")),youtubeLp);
         pinned.addView(tile("◎","Web tarayıcı","Web'de gezin",0xFF173F52,0xFF168AAB,v->openBrowser("https://www.google.com")),new LinearLayout.LayoutParams(0,-1,1));
 
-        addSectionTitle(page,"Favorilerim","Favori uygulama ve web sitelerini ekle.");
+        addSectionTitle(page,"Favorilerim","Favori web sitelerini ekle.");
         HorizontalScrollView horizontal=new HorizontalScrollView(this);horizontal.setHorizontalScrollBarEnabled(false);horizontal.setClipToPadding(false);LinearLayout.LayoutParams hLp=lp(-1,dp(156));hLp.topMargin=dp(14);page.addView(horizontal,hLp);
         shortcutStrip=new LinearLayout(this);shortcutStrip.setOrientation(LinearLayout.HORIZONTAL);horizontal.addView(shortcutStrip,new HorizontalScrollView.LayoutParams(-2,-1));renderCustomShortcuts();
 
@@ -80,7 +76,6 @@ public final class MainActivity extends Activity {
     private View tile(String icon,String title,String subtitle,int start,int accent,View.OnClickListener click){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER_VERTICAL);box.setPadding(dp(16),dp(14),dp(12),dp(13));box.setBackground(gradient(start,0xFF111A2B,20));box.setClickable(true);box.setFocusable(true);TextView symbol=label(icon,20,0xFFFFFFFF,true);symbol.setGravity(Gravity.CENTER);symbol.setBackground(card(accent,accent,15));box.addView(symbol,lp(dp(42),dp(42)));TextView name=label(title,16,0xFFF8FAFF,true);LinearLayout.LayoutParams n=lp(-1,-2);n.topMargin=dp(12);box.addView(name,n);TextView sub=label(subtitle,12,0xFFB0BCD0,false);LinearLayout.LayoutParams s=lp(-1,-2);s.topMargin=dp(4);box.addView(sub,s);box.setOnClickListener(click);return box;}
     private TextView actionButton(String value,int bg,int stroke){TextView t=label(value,13,0xFFF4F7FF,true);t.setGravity(Gravity.CENTER);t.setBackground(card(bg,stroke,14));return t;}
     private void openBrowser(String url){Intent i=new Intent(this,BrowserActivity.class);i.putExtra(BrowserActivity.EXTRA_INITIAL_URL,url);startActivity(i);}
-    private void openApp(String packageName){Intent launch=getPackageManager().getLaunchIntentForPackage(packageName);if(launch==null){Toast.makeText(this,"Bu uygulama açılamıyor.",Toast.LENGTH_SHORT).show();return;}try{startActivity(launch);}catch(Exception e){Toast.makeText(this,"Uygulama başlatılamadı.",Toast.LENGTH_SHORT).show();}}
 
     private void showAddWebsite(){
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),dp(2));
@@ -90,24 +85,7 @@ public final class MainActivity extends Activity {
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String normalized=ShortcutStore.normalizeUrl(url.getText().toString());String n=name.getText().toString().trim();if(n.isEmpty()&& !normalized.isEmpty()){String host=Uri.parse(normalized).getHost();n=host==null?"Web sitesi":host;}if(normalized.isEmpty()){url.setError("Geçerli bir web adresi gir.");return;}ShortcutStore.add(this,n,normalized,false);dialog.dismiss();renderCustomShortcuts();}));dialog.show();
     }
 
-    private void showAddShortcutOptions(){
-        new AlertDialog.Builder(this).setTitle("Favori ekle").setItems(new String[]{"Telefondan uygulama seç","Web sitesi ekle"},(d,which)->{
-            if(which==0){showInstalledApps();return;}
-            showAddWebsite();
-        }).setNegativeButton("Kapat",null).show();
-    }
-
-    private void showInstalledApps(){
-        Intent query=new Intent(Intent.ACTION_MAIN);query.addCategory(Intent.CATEGORY_LAUNCHER);
-        List<ResolveInfo> matches=getPackageManager().queryIntentActivities(query,0);
-        LinkedHashMap<String,ResolveInfo> unique=new LinkedHashMap<>();
-        for(ResolveInfo info:matches){if(info.activityInfo==null)continue;String packageName=info.activityInfo.packageName;if(!getPackageName().equals(packageName))unique.putIfAbsent(packageName,info);}
-        ArrayList<ResolveInfo> apps=new ArrayList<>(unique.values());
-        Collections.sort(apps,(a,b)->String.CASE_INSENSITIVE_ORDER.compare(String.valueOf(a.loadLabel(getPackageManager())),String.valueOf(b.loadLabel(getPackageManager()))));
-        if(apps.isEmpty()){new AlertDialog.Builder(this).setMessage("Seçilebilecek bir uygulama bulunamadı.").setPositiveButton("Tamam",null).show();return;}
-        String[] labels=new String[apps.size()];for(int i=0;i<apps.size();i++)labels[i]=String.valueOf(apps.get(i).loadLabel(getPackageManager()));
-        new AlertDialog.Builder(this).setTitle("Favori uygulama seç").setItems(labels,(dialog,which)->{ResolveInfo selected=apps.get(which);String packageName=selected.activityInfo.packageName;ShortcutStore.addApp(this,packageName,labels[which]);renderCustomShortcuts();}).setNegativeButton("Vazgeç",null).show();
-    }
+    private void showAddShortcutOptions(){showAddWebsite();}
 
     private void checkForUpdates(){Toast.makeText(this,"GitHub kontrol ediliyor…",Toast.LENGTH_SHORT).show();GithubUpdater.check(BuildConfig.VERSION_NAME,(release,error)->{if(isFinishing())return;if(error!=null){new AlertDialog.Builder(this).setMessage(error).setPositiveButton("Tamam",null).show();return;}if(release==null){new AlertDialog.Builder(this).setMessage("AutoTube güncel. ("+BuildConfig.VERSION_NAME+")").setPositiveButton("Tamam",null).show();return;}
         new AlertDialog.Builder(this).setTitle("Güncelleme var: "+release.version).setMessage(release.notes.isEmpty()?"Yeni sürümü indirip kurmak ister misin?":release.notes+"\n\nYeni sürümü indirip kurmak ister misin?").setNegativeButton("Daha sonra",null).setPositiveButton("İndir",(dialog,which)->downloadUpdate(release)).show();});}
@@ -145,15 +123,9 @@ public final class MainActivity extends Activity {
         dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String normalized=ShortcutStore.normalizeUrl(url.getText().toString());String n=name.getText().toString().trim();if(n.isEmpty()){name.setError("Bir ad gir.");return;}if(normalized.isEmpty()){url.setError("Geçerli bir web adresi gir.");return;}ShortcutStore.update(this,item.id,n,normalized);dialog.dismiss();renderCustomShortcuts();}));dialog.show();
     }
 
-    private void showEditAppName(ShortcutStore.Item item){
-        EditText name=new EditText(this);name.setSingleLine(true);name.setText(item.name);name.setSelectAllOnFocus(true);name.setTextColor(0xFFF5F8FF);name.setHintTextColor(0xFF8D9AB0);name.setPadding(dp(14),dp(10),dp(14),dp(10));name.setBackground(card(0xFF101D30,0xFF2A4562,12));
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Uygulama adını düzenle").setView(name).setNegativeButton("Vazgeç",null).setPositiveButton("Kaydet",null).create();
-        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{String n=name.getText().toString().trim();if(n.isEmpty()){name.setError("Bir ad gir.");return;}ShortcutStore.update(this,item.id,n,item.value);dialog.dismiss();renderCustomShortcuts();}));dialog.show();
-    }
-
     private void showShortcutMenu(View anchor,ShortcutStore.Item item){
         PopupMenu menu=new PopupMenu(this,anchor);menu.getMenu().add("Düzenle");menu.getMenu().add("Sil");
-        menu.setOnMenuItemClickListener(option->{if("Düzenle".contentEquals(option.getTitle())){if(item.app)showEditAppName(item);else showEditWebsite(item);return true;}
+        menu.setOnMenuItemClickListener(option->{if("Düzenle".contentEquals(option.getTitle())){showEditWebsite(item);return true;}
             new AlertDialog.Builder(this).setTitle("Kısayolu sil?").setMessage(item.name+" ana ekrandan kaldırılacak.").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{ShortcutStore.remove(this,item.id);renderCustomShortcuts();}).show();return true;});menu.show();
     }
 
@@ -164,11 +136,10 @@ public final class MainActivity extends Activity {
         header.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));TextView more=label("⋮",24,0xFFABB7CA,true);more.setGravity(Gravity.CENTER);header.addView(more,lp(dp(28),dp(36)));more.setContentDescription("Kısayol seçenekleri");more.setOnClickListener(v->showShortcutMenu(more,item));
         TextView title=label(item.name,13,0xFFF5F7FC,true);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);LinearLayout.LayoutParams tlp=lp(-1,-2);tlp.topMargin=dp(10);box.addView(title,tlp);
         TextView hint=label("Açmak için dokun",10,0xFF8998AE,false);LinearLayout.LayoutParams hlp=lp(-1,-2);hlp.topMargin=dp(4);box.addView(hint,hlp);
-        box.setClickable(true);box.setOnClickListener(v->{if(item.app)openApp(item.value);else openBrowser(item.value);});
+        box.setClickable(true);box.setOnClickListener(v->openBrowser(item.value));
         box.setOnLongClickListener(v->{ClipData data=ClipData.newPlainText("shortcut",item.id);v.startDragAndDrop(data,new View.DragShadowBuilder(v),null,0);return true;});
         box.setOnDragListener((v,event)->{if(event.getAction()==android.view.DragEvent.ACTION_DROP){String dragged=event.getClipData().getItemAt(0).getText().toString();int target=0;for(int i=0;i<items.size();i++)if(items.get(i).id.equals(item.id)){target=i;break;}ShortcutStore.move(this,dragged,target);renderCustomShortcuts();return true;}return true;});
-        if(item.app){try{icon.setImageDrawable(getPackageManager().getApplicationIcon(item.value));}catch(Exception ignored){icon.setImageResource(android.R.drawable.ic_menu_view);}}
-        else{icon.setImageResource(android.R.drawable.ic_menu_view);iconWorker.execute(()->{Bitmap bitmap=fetchIcon(item.value);if(bitmap!=null)mainHandler.post(()->{if(!isFinishing()&&icon.getTag()==null){icon.setImageBitmap(bitmap);icon.setTag(item.value);}});});}
+        icon.setImageResource(android.R.drawable.ic_menu_view);iconWorker.execute(()->{Bitmap bitmap=fetchIcon(item.value);if(bitmap!=null)mainHandler.post(()->{if(!isFinishing()&&icon.getTag()==null){icon.setImageBitmap(bitmap);icon.setTag(item.value);}});});
     }
 
     private void addAddShortcutTile(){LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);tile.setGravity(Gravity.CENTER);tile.setPadding(dp(10),dp(10),dp(10),dp(10));tile.setBackground(card(0xFF121B2D,0xFF394461,17));LinearLayout.LayoutParams p=lp(dp(112),-1);p.rightMargin=dp(4);shortcutStrip.addView(tile,p);TextView plus=label("＋",29,0xFF9D9BFF,true);plus.setGravity(Gravity.CENTER);plus.setBackground(card(0xFF252744,0xFF514B83,18));tile.addView(plus,lp(dp(46),dp(46)));TextView text=label("Kısayol ekle",11,0xFFDCE2F1,true);text.setGravity(Gravity.CENTER);LinearLayout.LayoutParams tp=lp(-1,-2);tp.topMargin=dp(11);tile.addView(text,tp);tile.setOnClickListener(v->showAddShortcutOptions());}
