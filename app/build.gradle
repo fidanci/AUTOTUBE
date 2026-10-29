@@ -1,0 +1,16 @@
+plugins { id "com.android.application" }
+android {
+    namespace "com.furkan.autotube"
+    compileSdk 36
+    buildToolsVersion "36.1.0"
+    buildFeatures { buildConfig true }
+    defaultConfig {
+        applicationId "com.furkan.autotube"
+        minSdk 28
+        targetSdk 36
+        versionCode System.getenv("APP_VERSION_CODE")?.toInteger() ?: 3
+        versionName System.getenv("APP_VERSION_NAME") ?: "0.3.0"
+    }
+}
+
+dependencies { implementation "androidx.core:core:1.17.0" }

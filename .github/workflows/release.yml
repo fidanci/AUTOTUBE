@@ -1,0 +1,57 @@
+name: Build and publish AutoTube APK
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 9 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.7.1"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Keep the sideload signing key stable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: autotube-sideload-signing-v1
+
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.1.0"
+
+      - name: Set release version
+        run: |
+          echo "APP_VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "APP_VERSION_NAME=0.3.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Prepare release files
+        if: github.event_name == 'push'
+        run: cp app/build/outputs/apk/debug/app-debug.apk AutoTube.apk
+
+      - name: Publish GitHub release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ env.APP_VERSION_NAME }}
+          name: AutoTube v${{ env.APP_VERSION_NAME }}
+          generate_release_notes: true
+          files: AutoTube.apk
